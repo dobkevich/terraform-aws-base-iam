@@ -1,4 +1,4 @@
-# AWS IAM Infrastructure as Code (OIDC & Best Practices)
+# Terraform Configuration for AWS IAM with OIDC Federation for GitHub Actions CI/CD
 
 This repository provides a secure, production-ready AWS IAM configuration using Terraform. It implements modern security standards, including **OIDC Federation** for GitHub Actions, eliminating the need for long-lived static Access Keys.
 
