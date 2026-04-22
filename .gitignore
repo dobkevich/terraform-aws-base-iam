@@ -1,7 +1,7 @@
 # Terraform
-.terraform/
+**/.terraform/*
 *.tfstate
-*.tfstate.backup
+*.tfstate.*
 *.tfvars
 *.tfvars.json
 override.tf
@@ -9,6 +9,10 @@ override.tf.json
 *_override.tf
 *_override.tf.json
 .terraform.lock.hcl
+crash.log
+crash.*.log
+.terraformrc
+terraform.rc
 
 # Credentials
 .aws/
