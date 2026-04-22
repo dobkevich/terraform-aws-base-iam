@@ -1,0 +1,79 @@
+AWS CI/CD CONFIGURATION GUIDE (OIDC FEDERATION)
+===============================================
+
+Overview:
+---------
+Using static AWS Access Keys (AK/SK) in GitHub Secrets is insecure and requires 
+manual rotation. This project uses OpenID Connect (OIDC) to allow GitHub Actions 
+to securely access AWS resources without long-lived credentials.
+
+This approach is the AWS equivalent of GCP's Workload Identity Federation (WIF).
+
+Prerequisites:
+--------------
+1. An AWS Account.
+2. The 'aws' Terraform provider (v6.0 or higher).
+3. A GitHub repository where your CI/CD will run.
+
+Step 1: Infrastructure Configuration (Terraform)
+------------------------------------------------
+The file 'iam_cicd.tf' defines three critical components:
+1. OIDC Identity Provider: Configures trust between AWS and GitHub.
+2. IAM Role: A role that GitHub Actions can "assume" (GitHubActionsRole).
+3. Trust Policy: A condition that restricts access to YOUR specific GitHub 
+   repository using the 'sub' claim.
+
+Update 'variables.tf' with your GitHub repository path:
+variable "github_repository" {
+  default = "your-github-user/your-github-repo"
+}
+
+Step 2: Apply the Configuration
+-------------------------------
+Run the following commands to create the OIDC infrastructure:
+$ terraform init
+$ terraform apply
+
+Note the output 'github_actions_role_arn'. It will look like:
+arn:aws:iam::123456789012:role/GitHubActionsRole
+
+Step 3: GitHub Actions Setup
+----------------------------
+In your GitHub repository, create a workflow file (e.g., .github/workflows/deploy.yml).
+Use the provided 'cicd_github_action.yaml' as a template.
+
+Crucial Job Settings:
+1. permissions:
+     id-token: write  # Required for requesting the JWT from GitHub
+     contents: read   # Required for checkout
+
+2. Authentication Step:
+   - name: Configure AWS credentials
+     uses: aws-actions/configure-aws-credentials@v4
+     with:
+       role-to-assume: arn:aws:iam::YOUR_ACCOUNT_ID:role/GitHubActionsRole
+       aws-region: eu-central-2
+
+How It Works:
+-------------
+1. GitHub generates a short-lived OIDC token for the job.
+2. AWS Security Token Service (STS) verifies this token against the OIDC 
+   Provider settings.
+3. If the repository name and thumbprint match, AWS issues temporary 
+   credentials (AccessKey, SecretKey, SessionToken) for the 'GitHubActionsRole'.
+4. Subsequent steps (aws-cli, terraform) use these temporary credentials.
+
+Security Benefits:
+------------------
+* No secret keys stored in GitHub Secrets.
+* Access is automatically revoked when the CI/CD job finishes.
+* No maintenance of key rotation is required.
+* Fine-grained control: You can restrict access to specific branches or environments.
+
+Troubleshooting:
+----------------
+* InvalidIdentityToken: Ensure the thumbprint in 'iam_cicd.tf' is up to date.
+* AccessDenied: Ensure the 'github_repository' variable matches your GitHub 
+  path exactly (case-sensitive) and matches the trust policy condition.
+* Region Mismatch: Ensure 'aws-region' in the GitHub Action matches your 
+  resource location.

@@ -1,0 +1,43 @@
+# 1. OpenID Connect (OIDC) Provider for GitHub Actions
+# Analog to google_iam_workload_identity_pool_provider in GCP
+resource "aws_iam_openid_connect_provider" "github" {
+  url             = "https://token.actions.githubusercontent.com"
+  client_id_list  = ["sts.amazonaws.com"]
+  thumbprint_list = ["1c587789515a197e73f00f0cf921d8470505190c"] # GitHub OIDC thumbprint
+}
+
+# 2. IAM Role for GitHub Actions
+# This role grants permissions to CI/CD workflows WITHOUT static access keys.
+resource "aws_iam_role" "github_cicd" {
+  name = "GitHubActionsRole"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRoleWithWebIdentity"
+        Effect = "Allow"
+        Principal = {
+          Federated = aws_iam_openid_connect_provider.github.arn
+        }
+        Condition = {
+          StringLike = {
+            "token.actions.githubusercontent.com:sub": "repo:${var.github_repository}:*"
+          }
+        }
+      }
+    ]
+  })
+}
+
+# 3. Attach AdministratorAccess (or a more scoped policy) to the role
+# This allows the CI/CD pipeline to deploy all resources in the project.
+resource "aws_iam_role_policy_attachment" "github_cicd_admin" {
+  role       = aws_iam_role.github_cicd.name
+  policy_arn = "arn:aws:iam::aws:policy/AdministratorAccess"
+}
+
+# Output the Role ARN needed for GitHub Actions
+output "github_actions_role_arn" {
+  value = aws_iam_role.github_cicd.arn
+}

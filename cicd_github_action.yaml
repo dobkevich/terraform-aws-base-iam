@@ -1,0 +1,32 @@
+# Example GitHub Action Workflow using OIDC (No keys needed!)
+name: Terraform Apply (AWS OIDC)
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+    
+    # Required for ID Token generation (important!)
+    permissions:
+      id-token: 'write'
+      contents: 'read'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Authenticate to AWS using OIDC
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          # Use the 'github_actions_role_arn' output from Terraform
+          role-to-assume: arn:aws:iam::YOUR_ACCOUNT_ID:role/GitHubActionsRole
+          aws-region: eu-central-2
+
+      # Now all subsequent aws-cli or terraform commands are authenticated!
+      - name: Terraform Plan
+        run: |
+          terraform init
+          terraform plan
